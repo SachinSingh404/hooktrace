@@ -2,6 +2,7 @@
 
 require_relative "hooktrace/version"
 require_relative "hooktrace/field"
+require_relative "hooktrace/validator"
 require_relative "hooktrace/contract"
 
 module Hooktrace
@@ -21,6 +22,10 @@ module Hooktrace
       @registry[name.to_s] || raise(ContractNotFoundError, "Contract '#{name}' is not defined")
     end
     alias [] contract
+
+    def validate(name, payload)
+      contract(name).validate(payload)
+    end
   end
 end
 

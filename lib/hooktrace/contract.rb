@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "field"
+require_relative "validator"
 
 module Hooktrace
   class Contract
@@ -17,6 +18,10 @@ module Hooktrace
       @name = name.to_s.freeze
       @fields = fields.freeze
       freeze
+    end
+
+    def validate(payload)
+      Validator.new(self).validate(payload)
     end
 
     class Builder
