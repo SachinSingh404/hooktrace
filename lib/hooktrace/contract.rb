@@ -38,6 +38,36 @@ module Hooktrace
       def optional(name, type: nil, nullable: false)
         @fields << Field.new(name: name, type: type&.to_sym, required: false, nullable: nullable)
       end
+
+      def object(name, required: true, nullable: false, &block)
+        child_builder = Builder.new
+        child_builder.instance_eval(&block) if block
+        @fields << Field.new(
+          name: name,
+          type: :object,
+          required: required,
+          nullable: nullable,
+          fields: child_builder.fields
+        )
+      end
+
+      def array(name, item_type: nil, required: true, nullable: false, &block)
+        item_fields = []
+        if block
+          child_builder = Builder.new
+          child_builder.instance_eval(&block)
+          item_fields = child_builder.fields
+        end
+
+        @fields << Field.new(
+          name: name,
+          type: :array,
+          required: required,
+          nullable: nullable,
+          item_type: item_type&.to_sym,
+          item_fields: item_fields
+        )
+      end
     end
   end
 end
