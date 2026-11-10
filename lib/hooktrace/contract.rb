@@ -20,8 +20,8 @@ module Hooktrace
       freeze
     end
 
-    def validate(payload)
-      Validator.new(self).validate(payload)
+    def validate(payload, strict: false, max_errors: Validator::DEFAULT_MAX_ERRORS)
+      Validator.new(self, strict: strict, max_errors: max_errors).validate(payload)
     end
 
     class Builder

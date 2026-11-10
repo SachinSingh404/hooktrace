@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
 require_relative "hooktrace/version"
+require_relative "hooktrace/error"
 require_relative "hooktrace/field"
+require_relative "hooktrace/result"
 require_relative "hooktrace/validator"
 require_relative "hooktrace/contract"
 
@@ -23,8 +25,8 @@ module Hooktrace
     end
     alias [] contract
 
-    def validate(name, payload)
-      contract(name).validate(payload)
+    def validate(name, payload, strict: false)
+      contract(name).validate(payload, strict: strict)
     end
   end
 end
