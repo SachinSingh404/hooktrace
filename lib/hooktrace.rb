@@ -9,6 +9,7 @@ require_relative "hooktrace/validator"
 require_relative "hooktrace/contract"
 require_relative "hooktrace/event_record"
 require_relative "hooktrace/storage/file_store"
+require_relative "hooktrace/webhook_processor"
 
 module Hooktrace
   class StandardError < ::StandardError; end
@@ -58,6 +59,20 @@ module Hooktrace
       record = save_validation_record(result, contracts, payload, id: id, event_type: event_type, provider: provider)
       [result, record]
     end
+
+    def process_webhook(payload_or_raw, headers: {}, provider: nil, event_type: nil, id: nil,
+                        strict: false, record: @auto_record)
+      WebhookProcessor.process(
+        payload_or_raw,
+        headers: headers,
+        provider: provider,
+        event_type: event_type,
+        id: id,
+        strict: strict,
+        record: record
+      )
+    end
+    alias handle_webhook process_webhook
 
     private
 
