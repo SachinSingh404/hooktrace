@@ -9,6 +9,7 @@ require_relative "hooktrace/validator"
 require_relative "hooktrace/contract"
 require_relative "hooktrace/event_record"
 require_relative "hooktrace/storage/file_store"
+require_relative "hooktrace/importers/stripe_open_api"
 require_relative "hooktrace/webhook_processor"
 
 module Hooktrace
@@ -26,6 +27,25 @@ module Hooktrace
 
     def registry
       @registry.dup
+    end
+
+    def builtin_contracts_path
+      BUILTIN_CONTRACTS_DIR
+    end
+
+    def sync_contracts!(provider = :stripe, output: nil, events: nil, spec_source: nil)
+      case provider.to_s
+      when "stripe"
+        target = output || File.join(BUILTIN_CONTRACTS_DIR, "stripe.json")
+        opts = { output_path: target }
+        opts[:events] = events unless events.nil?
+        opts[:spec_source] = spec_source if spec_source
+        bundle = Importers::StripeOpenApi.sync(**opts)
+        load_contract(target)
+        bundle
+      else
+        raise ArgumentError, "Unsupported sync provider '#{provider}'"
+      end
     end
 
     def store
