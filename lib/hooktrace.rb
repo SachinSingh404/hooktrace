@@ -10,6 +10,7 @@ require_relative "hooktrace/contract"
 require_relative "hooktrace/event_record"
 require_relative "hooktrace/storage/file_store"
 require_relative "hooktrace/importers/stripe_open_api"
+require_relative "hooktrace/importers/paypal_open_api"
 require_relative "hooktrace/webhook_processor"
 
 module Hooktrace
@@ -33,18 +34,36 @@ module Hooktrace
       BUILTIN_CONTRACTS_DIR
     end
 
-    def sync_contracts!(provider = :stripe, output: nil, events: nil, spec_source: nil)
-      case provider.to_s
-      when "stripe"
-        target = output || File.join(BUILTIN_CONTRACTS_DIR, "stripe.json")
-        opts = { output_path: target }
-        opts[:events] = events unless events.nil?
-        opts[:spec_source] = spec_source if spec_source
-        bundle = Importers::StripeOpenApi.sync(**opts)
-        load_contract(target)
-        bundle
+    def builtin_providers
+      Dir.glob(File.join(BUILTIN_CONTRACTS_DIR, "*.json")).map do |file|
+        File.basename(file, ".json")
+      end.sort
+    end
+
+    def load_builtin_contracts!(*providers)
+      targets = providers.flatten.compact.map(&:to_s)
+      if targets.empty?
+        load_contracts_from(BUILTIN_CONTRACTS_DIR)
       else
-        raise ArgumentError, "Unsupported sync provider '#{provider}'"
+        targets.flat_map do |provider|
+          path = File.join(BUILTIN_CONTRACTS_DIR, "\#{provider}.json")
+          File.exist?(path) ? Array(load_contract(path)) : []
+        end
+      end
+    end
+
+    def sync_contracts!(provider = :all, output: nil, events: nil, spec_source: nil)
+      case provider.to_s
+      when "all"
+        { "stripe" => sync_contracts!(:stripe, events: events), "paypal" => sync_contracts!(:paypal, events: events) }
+      when "stripe"
+        sync_provider_bundle(Importers::StripeOpenApi, "stripe.json", :spec_source,
+                             output: output, events: events, spec_source: spec_source)
+      when "paypal"
+        sync_provider_bundle(Importers::PaypalOpenApi, "paypal.json", :spec_base,
+                             output: output, events: events, spec_source: spec_source)
+      else
+        raise ArgumentError, "Unsupported sync provider '\#{provider}'. Supported: stripe, paypal, all"
       end
     end
 
@@ -135,7 +154,7 @@ module Hooktrace
         list = data["events"] || data["contracts"]
         prefix = data["provider"]
         list.map do |item|
-          item["name"] = "#{prefix}.#{item["name"]}" if prefix && !item["name"].start_with?("#{prefix}.")
+          item["name"] = "\#{prefix}.\#{item["name"]}" if prefix && !item["name"].start_with?("\#{prefix}.")
           Contract.from_h(item)
         end
       elsif data.key?("fields")
@@ -147,15 +166,26 @@ module Hooktrace
       end
     end
 
+    def sync_provider_bundle(importer, default_filename, source_key, output:, events:, spec_source:)
+      target = output || File.join(BUILTIN_CONTRACTS_DIR, default_filename)
+      opts = { output_path: target }
+      opts[:events] = events unless events.nil?
+      opts[source_key] = spec_source if spec_source
+
+      bundle = importer.sync(**opts)
+      load_contract(target)
+      bundle
+    end
+
     def fetch_or_load_contract(name)
       str_name = name.to_s
       return @registry[str_name] if @registry.key?(str_name)
 
       provider = str_name.split(".").first
-      builtin_file = File.join(BUILTIN_CONTRACTS_DIR, "#{provider}.json")
+      builtin_file = File.join(BUILTIN_CONTRACTS_DIR, "\#{provider}.json")
       load_contract(builtin_file) if File.exist?(builtin_file)
 
-      @registry[str_name] || raise(ContractNotFoundError, "Contract '#{name}' is not defined")
+      @registry[str_name] || raise(ContractNotFoundError, "Contract '\#{name}' is not defined")
     end
 
     def single_contract?(data, contracts)
