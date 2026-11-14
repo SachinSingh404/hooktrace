@@ -1,0 +1,24 @@
+# frozen_string_literal: true
+
+class CreateHooktraceEvents < ActiveRecord::Migration[<%= migration_version %>]
+  def change
+    create_table :hooktrace_events do |t|
+      t.string :event_id, null: false
+      t.string :event_type, null: false
+      t.string :provider, null: false
+      t.boolean :valid_event, null: false, default: false
+      t.integer :error_count, null: false, default: 0
+      t.json :validation_errors
+      t.json :payload
+      t.datetime :received_at, null: false
+
+      t.timestamps
+    end
+
+    add_index :hooktrace_events, :event_id
+    add_index :hooktrace_events, :event_type
+    add_index :hooktrace_events, :provider
+    add_index :hooktrace_events, :valid_event
+    add_index :hooktrace_events, :received_at
+  end
+end
