@@ -9,6 +9,7 @@ require_relative "hooktrace/validator"
 require_relative "hooktrace/contract"
 require_relative "hooktrace/event_record"
 require_relative "hooktrace/storage/file_store"
+require_relative "hooktrace/storage/active_record_store"
 require_relative "hooktrace/importers/stripe_open_api"
 require_relative "hooktrace/importers/paypal_open_api"
 require_relative "hooktrace/webhook_processor"
@@ -68,7 +69,7 @@ module Hooktrace
     end
 
     def store
-      @store ||= Storage::FileStore.new
+      @store ||= Storage::ActiveRecordStore.available? ? Storage::ActiveRecordStore.new : Storage::FileStore.new
     end
 
     def store=(new_store)
