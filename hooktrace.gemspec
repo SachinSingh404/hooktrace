@@ -18,6 +18,8 @@ Gem::Specification.new do |spec|
   spec.metadata["source_code_uri"] = spec.homepage
 
   spec.files = Dir["lib/**/*.rb", "LICENSE.txt", "README.md"]
+  spec.bindir = "exe"
+  spec.executables = ["hooktrace"]
   spec.require_paths = ["lib"]
 
   spec.add_dependency "rack", ">= 2.0"
