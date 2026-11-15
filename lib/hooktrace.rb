@@ -90,6 +90,13 @@ module Hooktrace
       contract
     end
 
+    def override(name, &)
+      existing = fetch_or_load_contract(name)
+      updated = Contract.override(existing, &)
+      @registry[updated.name] = updated
+      updated
+    end
+
     def contract(name)
       fetch_or_load_contract(name)
     end
