@@ -1,0 +1,74 @@
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-title">Total Webhooks</div>
+    <div class="stat-value"><%= stats[:total] %></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-title">Passed</div>
+    <div class="stat-value ok"><%= stats[:passed] %></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-title">Contract Violations</div>
+    <div class="stat-value <%= "err" if stats[:failed].positive? %>"><%= stats[:failed] %></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-title">Pass Rate</div>
+    <div class="stat-value <%= stats[:pass_rate] >= 100.0 ? "ok" : "err" %>"><%= stats[:pass_rate] %>%</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-title">Active Contracts</div>
+    <div class="stat-value"><%= contracts_count %></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Captured Webhook Payloads</div>
+    <% if events.any? %>
+      <form method="POST" action="<%= base_path %>/events/clear" onsubmit="return confirm('Clear all recorded webhook events?');">
+        <button type="submit" class="btn btn-outline" style="color: #ef4444;">Clear History</button>
+      </form>
+    <% end %>
+  </div>
+
+  <% if events.empty? %>
+    <div class="empty-state">
+      <p>No webhook events recorded yet.</p>
+    </div>
+  <% else %>
+    <table>
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Event Type</th>
+          <th>Provider</th>
+          <th>Event ID</th>
+          <th>Errors</th>
+          <th>Received At</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% events.each do |event| %>
+          <tr>
+            <td>
+              <span class="badge <%= event.valid? ? "badge-ok" : "badge-err" %>">
+                <%= event.valid? ? "✓ Valid" : "✗ Violation" %>
+              </span>
+            </td>
+            <td><strong><%= h(event.event_type) %></strong></td>
+            <td><span class="badge badge-neutral"><%= h(event.provider) %></span></td>
+            <td><code><%= h(event.id) %></code></td>
+            <td>
+              <% if event.errors.any? %>
+                <span style="color: #f87171; font-weight: 600;"><%= event.errors.size %> error(s)</span>
+              <% else %>
+                <span style="color: #94a3b8;">—</span>
+              <% end %>
+            </td>
+            <td style="color: var(--text-muted); font-size: 13px;"><%= h(event.received_at) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+</div>

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= h(title) %> — Hooktrace Web</title>
+  <style><%= stylesheet %></style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="<%= base_path %>/events" class="nav-brand">
+      ⚡ Hooktrace <span>v<%= h(Hooktrace::VERSION) %></span>
+    </a>
+    <div class="nav-links">
+      <a href="<%= base_path %>/events" class="<%= "active" if active_tab == "events" %>">Webhook Events</a>
+      <a href="<%= base_path %>/contracts" class="<%= "active" if active_tab == "contracts" %>">Contracts</a>
+    </div>
+  </nav>
+  <main class="container">
+    <%= content %>
+  </main>
+</body>
+</html>

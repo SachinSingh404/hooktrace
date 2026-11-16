@@ -13,6 +13,7 @@ require_relative "hooktrace/storage/active_record_store"
 require_relative "hooktrace/importers/stripe_open_api"
 require_relative "hooktrace/importers/paypal_open_api"
 require_relative "hooktrace/webhook_processor"
+require_relative "hooktrace/web"
 
 module Hooktrace
   class StandardError < ::StandardError; end

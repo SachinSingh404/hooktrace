@@ -1,0 +1,41 @@
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Active Registered Contracts (<%= contracts.size %>)</div>
+  </div>
+
+  <% if contracts.empty? %>
+    <div class="empty-state">
+      <p>No contracts registered yet.</p>
+      <p style="margin-top: 8px; font-size: 13px;">
+        Define contracts using <code>Hooktrace.define</code> or load JSON files with <code>Hooktrace.load_contracts_from</code>.
+      </p>
+    </div>
+  <% else %>
+    <% contracts.each do |contract| %>
+      <% dom_id = "raw-#{contract.name.gsub(/[^a-z0-9]/i, "_")}" %>
+      <div style="border-bottom: 1px solid var(--card-border); padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 16px; font-weight: 700; color: var(--primary);"><%= h(contract.name) %></span>
+            <span class="badge badge-neutral"><%= contract.fields.size %> root fields</span>
+          </div>
+          <button
+            class="btn btn-outline"
+            style="padding: 4px 10px; font-size: 12px;"
+            onclick="document.getElementById('<%= dom_id %>').classList.toggle('hidden')"
+          >
+            Toggle JSON
+          </button>
+        </div>
+        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
+          Fields:
+          <%= contract.fields.map { |f| "<code>#{h(f.name)}</code> (#{h(f.type)}#{", required" if f.required?})" }.join(", ") %>
+        </div>
+        <div id="<%= dom_id %>" class="hidden" style="margin-top: 10px;">
+          <pre><%= h(JSON.pretty_generate(contract.to_h)) %></pre>
+        </div>
+      </div>
+    <% end %>
+  <% end %>
+</div>
+
