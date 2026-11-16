@@ -34,8 +34,24 @@ module Hooktrace
         Hooktrace.store.clear!
         redirect_to(req, "/events")
       else
+        handle_dynamic_route(req, path)
+      end
+    end
+
+    def handle_dynamic_route(req, path)
+      if req.get? && path.start_with?("/events/")
+        render_event_detail(req, path.sub("/events/", ""))
+      else
         [404, html_headers, ["<h1>404 Not Found</h1>"]]
       end
+    end
+
+    def render_event_detail(req, event_id)
+      event = Hooktrace.store.find(event_id)
+      return [404, html_headers, ["<h1>Event not found</h1>"]] unless event
+
+      body = render_view("event_detail", event: event, base_path: req.script_name.to_s)
+      render_layout("Event #{event.id}", body, req, active_tab: "events")
     end
 
     def render_events(req)

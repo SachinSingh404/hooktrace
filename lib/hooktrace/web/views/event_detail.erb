@@ -1,0 +1,53 @@
+<div style="margin-bottom: 16px;">
+  <a href="<%= base_path %>/events" style="color: var(--primary); text-decoration: none; font-size: 14px;">&larr; Back to Events</a>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+  <div>
+    <h1 style="font-size: 24px; font-weight: 700; display: flex; align-items: center; gap: 12px;">
+      <span><%= h(event.event_type) %></span>
+      <span id="event-detail-badge" class="badge <%= event.valid? ? "badge-ok" : "badge-err" %>">
+        <%= event.valid? ? "✓ Valid Payload" : "✗ Contract Violation" %>
+      </span>
+    </h1>
+    <div style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">
+      Event ID: <code><%= h(event.id) %></code> &bull;
+      Received at: <%= h(event.received_at) %> &bull;
+      Provider: <%= h(event.provider) %>
+    </div>
+  </div>
+  <% if event.invalid? %>
+    <form method="POST" action="<%= base_path %>/events/<%= h(event.id) %>/revalidate" class="js-revalidate-form" data-event-id="<%= h(event.id) %>">
+      <button type="submit" class="btn">↻ Re-validate Event</button>
+    </form>
+  <% end %>
+</div>
+
+<div id="revalidate-feedback" class="hidden"></div>
+
+<% if event.errors.any? %>
+  <div id="event-violations-card" class="card" style="border-left: 4px solid var(--red); margin-bottom: 20px;">
+    <div class="card-header" style="background: rgba(127, 29, 29, 0.2);">
+      <div class="card-title" style="color: var(--red);">Contract Violations (<%= event.errors.size %>)</div>
+    </div>
+    <div style="padding: 16px;">
+      <ul style="list-style: none;">
+        <% event.errors.each do |err| %>
+          <li style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px;">
+            <code><%= h(err["path"] || err[:path] || "$") %></code>:
+            <strong style="color: var(--red);">[<%= h(err["code"] || err[:code] || "error") %>]</strong>
+            <%= h(err["message"] || err[:message] || "") %>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+  </div>
+<% end %>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Full JSON Payload</div>
+  </div>
+  <pre><%= h(JSON.pretty_generate(event.payload)) %></pre>
+</div>
+
