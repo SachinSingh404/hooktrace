@@ -19,5 +19,125 @@
   <main class="container">
     <%= content %>
   </main>
+  <script>
+    (function() {
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function renderFeedback(el, ok, apiLabel, httpStatus, message, payload) {
+        el.className = "api-banner " + (ok ? "api-banner-ok" : "api-banner-err");
+        el.innerHTML =
+          '<div class="api-banner-head">' +
+            '<div>' +
+              '<strong>' + escapeHtml(message) + '</strong>' +
+              '<div class="api-banner-meta">API Called: <code>' + escapeHtml(apiLabel) + '</code> &bull; HTTP ' + escapeHtml(httpStatus) + '</div>' +
+            '</div>' +
+            '<button type="button" class="btn btn-outline btn-sm" onclick="this.closest(\'.api-banner\').className=\'hidden\'">Dismiss</button>' +
+          '</div>' +
+          '<pre>' + escapeHtml(JSON.stringify(payload, null, 2)) + '</pre>';
+      }
+
+      function updateStats(stats) {
+        if (!stats) return;
+        var passedEl = document.querySelector('[data-stat="passed"]');
+        var failedEl = document.querySelector('[data-stat="failed"]');
+        var rateEl = document.querySelector('[data-stat="pass_rate"]');
+        if (passedEl) passedEl.textContent = stats.passed;
+        if (failedEl) {
+          failedEl.textContent = stats.failed;
+          failedEl.className = "stat-value" + (stats.failed > 0 ? " err" : "");
+        }
+        if (rateEl) {
+          rateEl.textContent = stats.pass_rate + "%";
+          rateEl.className = "stat-value " + (stats.pass_rate >= 100.0 ? "ok" : "err");
+        }
+      }
+
+      function updateEventUI(form, eventId, data) {
+        updateStats(data.stats);
+        var row = Array.prototype.find.call(document.querySelectorAll("[data-event-row]"), function(tr) {
+          return tr.getAttribute("data-event-row") === eventId;
+        });
+        if (row) {
+          var statusCell = row.querySelector("[data-event-status]");
+          var errorsCell = row.querySelector("[data-event-errors]");
+          if (statusCell) {
+            statusCell.innerHTML = '<span class="badge ' + (data.valid ? 'badge-ok' : 'badge-err') + '">' +
+              (data.valid ? '✓ Valid' : '✗ Violation') + '</span>';
+          }
+          if (errorsCell) {
+            var count = Array.isArray(data.errors) ? data.errors.length : 0;
+            errorsCell.innerHTML = count > 0
+              ? '<span style="color: #f87171; font-weight: 600;">' + count + ' error(s)</span>'
+              : '<span style="color: #94a3b8;">—</span>';
+          }
+          if (data.valid) form.remove();
+        }
+
+        var detailBadge = document.getElementById("event-detail-badge");
+        if (detailBadge) {
+          detailBadge.className = "badge " + (data.valid ? "badge-ok" : "badge-err");
+          detailBadge.textContent = data.valid ? "✓ Valid Payload" : "✗ Contract Violation";
+          if (data.valid) {
+            form.remove();
+            var violationsCard = document.getElementById("event-violations-card");
+            if (violationsCard) violationsCard.remove();
+          }
+        }
+      }
+
+      document.addEventListener("submit", async function(e) {
+        var form = e.target;
+        if (!form || !form.classList || !form.classList.contains("js-revalidate-form")) return;
+        e.preventDefault();
+
+        var btn = form.querySelector('button[type="submit"]');
+        var originalHtml = btn ? btn.innerHTML : "";
+        var feedback = document.getElementById("revalidate-feedback");
+        var apiPath = new URL(form.action, window.location.origin).pathname;
+        var eventId = form.getAttribute("data-event-id") || "";
+
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = '<span class="spinner"></span> Re-validating...';
+        }
+
+        try {
+          var res = await fetch(form.action, {
+            method: "POST",
+            headers: { "Accept": "application/json" }
+          });
+          var contentType = res.headers.get("content-type") || "";
+          if (contentType.indexOf("application/json") === -1) {
+            throw new Error("Expected JSON response (HTTP " + res.status + "). Restart your Rails server to load updated Hooktrace gem code.");
+          }
+          var data = await res.json();
+          if (feedback) {
+            var msg = data.message || (data.valid ? "Re-validation passed." : "Contract violation remains.");
+            renderFeedback(feedback, Boolean(res.ok && data.valid), data.api || ("POST " + apiPath), res.status, msg, data);
+          }
+          if (res.ok) updateEventUI(form, eventId, data);
+          if (btn && document.body.contains(btn)) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+          }
+        } catch (err) {
+          if (feedback) {
+            renderFeedback(feedback, false, "POST " + apiPath, "Error", "Failed to revalidate event: " + err.message, { error: err.message });
+          }
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+          }
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
+
