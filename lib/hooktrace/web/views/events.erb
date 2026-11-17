@@ -5,15 +5,15 @@
   </div>
   <div class="stat-card">
     <div class="stat-title">Passed</div>
-    <div class="stat-value ok"><%= stats[:passed] %></div>
+    <div class="stat-value ok" data-stat="passed"><%= stats[:passed] %></div>
   </div>
   <div class="stat-card">
     <div class="stat-title">Contract Violations</div>
-    <div class="stat-value <%= "err" if stats[:failed].positive? %>"><%= stats[:failed] %></div>
+    <div class="stat-value <%= "err" if stats[:failed].positive? %>" data-stat="failed"><%= stats[:failed] %></div>
   </div>
   <div class="stat-card">
     <div class="stat-title">Pass Rate</div>
-    <div class="stat-value <%= stats[:pass_rate] >= 100.0 ? "ok" : "err" %>"><%= stats[:pass_rate] %>%</div>
+    <div class="stat-value <%= stats[:pass_rate] >= 100.0 ? "ok" : "err" %>" data-stat="pass_rate"><%= stats[:pass_rate] %>%</div>
   </div>
   <div class="stat-card">
     <div class="stat-title">Active Contracts</div>
@@ -21,19 +21,31 @@
   </div>
 </div>
 
+<div id="revalidate-feedback" class="hidden"></div>
+
 <div class="card">
   <div class="card-header">
     <div class="card-title">Captured Webhook Payloads</div>
-    <% if events.any? %>
-      <form method="POST" action="<%= base_path %>/events/clear" onsubmit="return confirm('Clear all recorded webhook events?');">
-        <button type="submit" class="btn btn-outline" style="color: #ef4444;">Clear History</button>
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <form method="GET" action="<%= base_path %>/events" class="filter-bar">
+        <select name="status" onchange="this.form.submit()">
+          <option value="" <%= "selected" if status_filter.nil? || status_filter.empty? %>>All Statuses</option>
+          <option value="valid" <%= "selected" if status_filter == "valid" %>>✓ Valid Only</option>
+          <option value="invalid" <%= "selected" if status_filter == "invalid" %>>✗ Violations Only</option>
+        </select>
       </form>
-    <% end %>
+      <% if events.any? %>
+        <form method="POST" action="<%= base_path %>/events/clear" onsubmit="return confirm('Clear all recorded webhook events?');">
+          <button type="submit" class="btn btn-outline" style="color: #ef4444;">Clear History</button>
+        </form>
+      <% end %>
+    </div>
   </div>
 
   <% if events.empty? %>
     <div class="empty-state">
       <p>No webhook events recorded yet.</p>
+      <p style="margin-top: 8px; font-size: 13px;">Send a webhook to your endpoint or trigger a test payment to see live verification here.</p>
     </div>
   <% else %>
     <table>
@@ -50,8 +62,8 @@
       </thead>
       <tbody>
         <% events.each do |event| %>
-          <tr>
-            <td>
+          <tr data-event-row="<%= h(event.id) %>">
+            <td data-event-status>
               <span class="badge <%= event.valid? ? "badge-ok" : "badge-err" %>">
                 <%= event.valid? ? "✓ Valid" : "✗ Violation" %>
               </span>
@@ -59,7 +71,7 @@
             <td><strong><%= h(event.event_type) %></strong></td>
             <td><span class="badge badge-neutral"><%= h(event.provider) %></span></td>
             <td><code><%= h(event.id) %></code></td>
-            <td>
+            <td data-event-errors>
               <% if event.errors.any? %>
                 <span style="color: #f87171; font-weight: 600;"><%= event.errors.size %> error(s)</span>
               <% else %>
@@ -67,10 +79,22 @@
               <% end %>
             </td>
             <td style="color: var(--text-muted); font-size: 13px;"><%= h(event.received_at) %></td>
-            <td style="text-align: right;"><a href="<%= base_path %>/events/<%= h(event.id) %>" class="row-link">Inspect &rarr;</a></td>
+            <td style="text-align: right;">
+              <div style="display: inline-flex; align-items: center; gap: 10px;">
+                <% if event.invalid? %>
+                  <% return_path = status_filter && !status_filter.empty? ? "/events?status=#{CGI.escape(status_filter)}" : "/events" %>
+                  <form method="POST" action="<%= base_path %>/events/<%= h(event.id) %>/revalidate" class="js-revalidate-form" data-event-id="<%= h(event.id) %>" style="display: inline;">
+                    <input type="hidden" name="return_to" value="<%= h(return_path) %>">
+                    <button type="submit" class="btn btn-sm">↻ Re-validate</button>
+                  </form>
+                <% end %>
+                <a href="<%= base_path %>/events/<%= h(event.id) %>" class="row-link">Inspect &rarr;</a>
+              </div>
+            </td>
           </tr>
         <% end %>
       </tbody>
     </table>
   <% end %>
 </div>
+

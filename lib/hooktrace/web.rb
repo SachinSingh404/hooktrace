@@ -33,16 +33,59 @@ module Hooktrace
       when ["POST", "/events/clear"]
         Hooktrace.store.clear!
         redirect_to(req, "/events")
+      when ["POST", "/events/revalidate_failed"]
+        Hooktrace.revalidate_failed
+        redirect_to(req, "/events")
+        Hooktrace.store.clear!
+        redirect_to(req, "/events")
       else
         handle_dynamic_route(req, path)
       end
     end
 
     def handle_dynamic_route(req, path)
-      if req.get? && path.start_with?("/events/")
+      if req.post? && path.match?(%r{\A/events/[^/]+/revalidate\z})
+        event_id = path.sub(%r{\A/events/([^/]+)/revalidate\z}, '\1')
+        revalidate_event(req, event_id)
+      elsif req.get? && path.start_with?("/events/")
         render_event_detail(req, path.sub("/events/", ""))
       else
         [404, html_headers, ["<h1>404 Not Found</h1>"]]
+      end
+    end
+
+    def revalidate_event(req, event_id)
+      outcome = Hooktrace.revalidate(event_id)
+      respond_revalidate(req, outcome, event_id: event_id)
+    rescue Hooktrace::EventNotFoundError => e
+      respond_not_found(req, e.message)
+    end
+
+    def respond_revalidate(req, outcome, event_id:)
+      if req.env["HTTP_ACCEPT"]&.include?("application/json")
+        body = {
+          id: event_id,
+          valid: outcome.valid?,
+          errors: outcome.errors.map(&:to_h),
+          event_type: outcome.event_type,
+          provider: outcome.provider,
+          api: "POST \#{req.path_info}",
+          message: outcome.valid? ? "Re-validation passed: payload conforms to contract." : "Re-validation failed: contract violations detected.",
+          stats: Hooktrace.store.stats
+        }
+        [200, { "content-type" => "application/json" }, [JSON.generate(body)]]
+      else
+        return_to = req.params["return_to"]
+        target = return_to && !return_to.empty? ? return_to : "/events"
+        redirect_to(req, target)
+      end
+    end
+
+    def respond_not_found(req, message)
+      if req.env["HTTP_ACCEPT"]&.include?("application/json")
+        [404, { "content-type" => "application/json" }, [JSON.generate({ error: message })]]
+      else
+        [404, html_headers, ["<h1>\#{CGI.escapeHTML(message)}</h1>"]]
       end
     end
 
