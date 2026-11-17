@@ -18,6 +18,7 @@ require_relative "hooktrace/web"
 module Hooktrace
   class StandardError < ::StandardError; end
   class ContractNotFoundError < StandardError; end
+  class EventNotFoundError < StandardError; end
 
   BUILTIN_CONTRACTS_DIR = File.expand_path("hooktrace/contracts", __dir__).freeze
 
@@ -135,6 +136,25 @@ module Hooktrace
       )
     end
     alias handle_webhook process_webhook
+
+    def revalidate(event_id)
+      record = store.find(event_id)
+      raise EventNotFoundError, "Event '#{event_id}' not found" unless record
+
+      process_webhook(
+        record.payload,
+        provider: record.provider,
+        event_type: record.event_type,
+        id: record.id,
+        record: true
+      )
+    end
+
+    def revalidate_failed(limit: 1000)
+      failed = store.all(limit: limit, status: "invalid")
+      passed = failed.count { |event| revalidate(event.id).valid? }
+      { total: failed.size, passed: passed, still_failed: failed.size - passed }
+    end
 
     def load_contract(path)
       content = File.read(path, encoding: "UTF-8")
