@@ -1,10 +1,16 @@
 # frozen_string_literal: true
 
 require "json"
+require "monitor"
 
 module Hooktrace
   module Storage
     class ActiveRecordStore
+      @model_mutex = Monitor.new
+
+      class << self
+        attr_reader :model_mutex
+      end
       def self.available?
         return false unless defined?(::ActiveRecord::Base)
 
@@ -18,6 +24,9 @@ module Hooktrace
       def model_class
         return self.class.const_get(:Event, false) if self.class.const_defined?(:Event, false)
 
+        self.class.model_mutex.synchronize do
+          return self.class.const_get(:Event, false) if self.class.const_defined?(:Event, false)
+
         unless defined?(::ActiveRecord::Base)
           raise Hooktrace::StandardError, "ActiveRecord::Base is required for ActiveRecordStore"
         end
@@ -26,6 +35,7 @@ module Hooktrace
           self.table_name = "hooktrace_events"
         end
         self.class.const_set(:Event, klass)
+        end
       end
 
       def save(record)

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "monitor"
 require "securerandom"
 require_relative "hooktrace/version"
 require_relative "hooktrace/error"
@@ -23,14 +24,16 @@ module Hooktrace
   BUILTIN_CONTRACTS_DIR = File.expand_path("hooktrace/contracts", __dir__).freeze
 
   @registry = {}
+  @registry_mutex = Monitor.new
   @store = nil
+  @store_mutex = Monitor.new
   @auto_record = true
 
   class << self
     attr_accessor :auto_record
 
     def registry
-      @registry.dup
+      @registry_mutex.synchronize { @registry.dup }
     end
 
     def builtin_contracts_path
@@ -71,11 +74,13 @@ module Hooktrace
     end
 
     def store
-      @store ||= Storage::ActiveRecordStore.available? ? Storage::ActiveRecordStore.new : Storage::FileStore.new
+      @store_mutex.synchronize do
+        @store ||= Storage::ActiveRecordStore.available? ? Storage::ActiveRecordStore.new : Storage::FileStore.new
+      end
     end
 
     def store=(new_store)
-      @store = new_store
+      @store_mutex.synchronize { @store = new_store }
     end
 
     def configure
