@@ -11,6 +11,7 @@ module Hooktrace
       class << self
         attr_reader :model_mutex
       end
+
       def self.available?
         return false unless defined?(::ActiveRecord::Base)
 
@@ -27,14 +28,14 @@ module Hooktrace
         self.class.model_mutex.synchronize do
           return self.class.const_get(:Event, false) if self.class.const_defined?(:Event, false)
 
-        unless defined?(::ActiveRecord::Base)
-          raise Hooktrace::StandardError, "ActiveRecord::Base is required for ActiveRecordStore"
-        end
+          unless defined?(::ActiveRecord::Base)
+            raise Hooktrace::StandardError, "ActiveRecord::Base is required for ActiveRecordStore"
+          end
 
-        klass = Class.new(::ActiveRecord::Base) do
-          self.table_name = "hooktrace_events"
-        end
-        self.class.const_set(:Event, klass)
+          klass = Class.new(::ActiveRecord::Base) do
+            self.table_name = "hooktrace_events"
+          end
+          self.class.const_set(:Event, klass)
         end
       end
 
@@ -52,6 +53,10 @@ module Hooktrace
 
         row = model_class.find_or_initialize_by(event_id: rec.id)
         row.update!(attributes)
+        rec
+      rescue ::ActiveRecord::RecordNotUnique
+        row = model_class.find_by(event_id: rec.id)
+        row&.update!(attributes)
         rec
       end
 

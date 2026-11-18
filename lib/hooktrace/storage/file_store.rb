@@ -12,22 +12,27 @@ module Hooktrace
 
       def initialize(directory = DEFAULT_DIR)
         @directory = File.expand_path(directory)
+        @mutex = Monitor.new
         ensure_directory!
       end
 
       def save(record)
         ensure_directory!
         rec = record.is_a?(EventRecord) ? record : EventRecord.from_h(record)
-        filename = "#{rec.received_at}_#{rec.id}.json"
+        safe_id = sanitize_filename(rec.id)
+        filename = "#{sanitize_filename(rec.received_at)}_#{safe_id}.json"
         filepath = File.join(@directory, filename)
 
-        FileUtils.rm_f(Dir.glob(File.join(@directory, "*_#{rec.id}.json")))
-        File.write(filepath, JSON.pretty_generate(rec.to_h))
+        @mutex.synchronize do
+          FileUtils.rm_f(Dir.glob(File.join(@directory, "*_#{safe_id}.json")))
+          File.write(filepath, JSON.pretty_generate(rec.to_h))
+        end
         rec
       end
 
       def find(id)
-        pattern = File.join(@directory, "*_#{id}.json")
+        id_str = sanitize_filename(id)
+        pattern = File.join(@directory, "*_#{id_str}.json")
         file = Dir.glob(pattern).first
         return nil unless file && File.exist?(file)
 
@@ -72,7 +77,9 @@ module Hooktrace
 
       def clear!
         ensure_directory!
-        FileUtils.rm_f(Dir.glob(File.join(@directory, "*.json")))
+        @mutex.synchronize do
+          FileUtils.rm_f(Dir.glob(File.join(@directory, "*.json")))
+        end
       end
 
       private
@@ -86,6 +93,10 @@ module Hooktrace
         EventRecord.from_h(data)
       rescue StandardError
         nil
+      end
+
+      def sanitize_filename(string)
+        string.to_s.gsub(/[^0-9A-Za-z_-]/, "_")
       end
     end
   end

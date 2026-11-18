@@ -15,10 +15,11 @@ class CreateHooktraceEvents < ActiveRecord::Migration[<%= migration_version %>]
       t.timestamps
     end
 
-    add_index :hooktrace_events, :event_id
+    add_index :hooktrace_events, :event_id, unique: true
     add_index :hooktrace_events, :event_type
     add_index :hooktrace_events, :provider
     add_index :hooktrace_events, :valid_event
     add_index :hooktrace_events, :received_at
   end
 end
+
