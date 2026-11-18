@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "monitor"
-require "securerandom"
 require_relative "hooktrace/version"
 require_relative "hooktrace/error"
 require_relative "hooktrace/field"
@@ -52,7 +51,7 @@ module Hooktrace
         load_contracts_from(BUILTIN_CONTRACTS_DIR)
       else
         targets.flat_map do |provider|
-          path = File.join(BUILTIN_CONTRACTS_DIR, "\#{provider}.json")
+          path = File.join(BUILTIN_CONTRACTS_DIR, "#{provider}.json")
           File.exist?(path) ? Array(load_contract(path)) : []
         end
       end
@@ -69,7 +68,7 @@ module Hooktrace
         sync_provider_bundle(Importers::PaypalOpenApi, "paypal.json", :spec_base,
                              output: output, events: events, spec_source: spec_source)
       else
-        raise ArgumentError, "Unsupported sync provider '\#{provider}'. Supported: stripe, paypal, all"
+        raise ArgumentError, "Unsupported sync provider '#{provider}'. Supported: stripe, paypal, all"
       end
     end
 
@@ -93,19 +92,23 @@ module Hooktrace
 
     def define(name, &)
       contract = Contract.define(name, &)
-      @registry[name.to_s] = contract
+      @registry_mutex.synchronize { @registry[name.to_s] = contract }
       contract
     end
 
     def override(name, &)
-      existing = fetch_or_load_contract(name)
-      updated = Contract.override(existing, &)
-      @registry[updated.name] = updated
-      updated
+      @registry_mutex.synchronize do
+        existing = fetch_or_load_contract(name)
+        updated = Contract.override(existing, &)
+        @registry[updated.name] = updated
+        updated
+      end
     end
 
     def contract(name)
-      fetch_or_load_contract(name)
+      @registry_mutex.synchronize do
+        fetch_or_load_contract(name)
+      end
     end
     alias [] contract
 
@@ -166,7 +169,12 @@ module Hooktrace
       data = JSON.parse(content)
       contracts = parse_contracts_data(data)
 
-      contracts.each { |c| @registry[c.name] = c }
+      @registry_mutex.synchronize do
+        contracts.each do |c|
+          @registry[c.name] = c
+        end
+      end
+
       single_contract?(data, contracts) ? contracts.first : contracts
     end
 
@@ -176,7 +184,7 @@ module Hooktrace
     end
 
     def clear_registry!
-      @registry.clear
+      @registry_mutex.synchronize { @registry.clear }
     end
 
     private
@@ -188,7 +196,7 @@ module Hooktrace
         list = data["events"] || data["contracts"]
         prefix = data["provider"]
         list.map do |item|
-          item["name"] = "\#{prefix}.\#{item["name"]}" if prefix && !item["name"].start_with?("\#{prefix}.")
+          item["name"] = "#{prefix}.#{item["name"]}" if prefix && !item["name"].start_with?("#{prefix}.")
           Contract.from_h(item)
         end
       elsif data.key?("fields")
@@ -215,11 +223,12 @@ module Hooktrace
       str_name = name.to_s
       return @registry[str_name] if @registry.key?(str_name)
 
+      # Attempt on-demand auto-load of built-in provider bundle
       provider = str_name.split(".").first
-      builtin_file = File.join(BUILTIN_CONTRACTS_DIR, "\#{provider}.json")
+      builtin_file = File.join(BUILTIN_CONTRACTS_DIR, "#{provider}.json")
       load_contract(builtin_file) if File.exist?(builtin_file)
 
-      @registry[str_name] || raise(ContractNotFoundError, "Contract '\#{name}' is not defined")
+      @registry[str_name] || raise(ContractNotFoundError, "Contract '#{name}' is not defined")
     end
 
     def single_contract?(data, contracts)
